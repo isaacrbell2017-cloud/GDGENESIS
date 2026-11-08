@@ -29,6 +29,7 @@ protected:
     void onTier(cocos2d::CCObject* sender);
     void onTarget(cocos2d::CCObject* sender);
     void onFill(cocos2d::CCObject*);
+    void onBlocks(cocos2d::CCObject*);
     void onModules(cocos2d::CCObject*);
     void onInfo(cocos2d::CCObject*);
     void onSettings(cocos2d::CCObject*);
@@ -57,6 +58,7 @@ private:
     ButtonSprite* m_selSprite = nullptr;
     ButtonSprite* m_wholeSprite = nullptr;
     ButtonSprite* m_fillSprite = nullptr;
+    ButtonSprite* m_blocksSprite = nullptr;
     ButtonSprite* m_genSprite = nullptr;
     CCMenuItemSpriteExtra* m_genBtn = nullptr;
     geode::async::TaskHolder<geode::utils::web::WebResponse> m_task;

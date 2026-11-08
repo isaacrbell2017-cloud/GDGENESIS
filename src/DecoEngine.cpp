@@ -24,6 +24,16 @@ constexpr int ID_GLOW_LARGE = 1011;  // straight large glow
 constexpr int ID_OUTLINE_TILE = 467; // outline square
 constexpr int ID_COLOR_SQUARE = 211; // plain colored square
 constexpr int ID_COLOR_TRIGGER = 899;
+constexpr int ID_PULSE_TRIGGER = 1006;
+constexpr int DETAIL_IDS[] = { 1765, 1766, 1767 }; // tiny cross / triangle / rectangle
+constexpr int DOT_GROUP_IDS[] = { 1608, 1609, 1610 };
+
+// Player speed in units per second for each speed portal.
+constexpr float SPEED_HALF = 251.16f;
+constexpr float SPEED_1X = 311.58f;
+constexpr float SPEED_2X = 387.42f;
+constexpr float SPEED_3X = 468.0f;
+constexpr float SPEED_4X = 576.0f;
 constexpr int CHAIN_IDS[] = { 41, 41, 110, 107 };
 constexpr int CLOUD_IDS[] = { 129, 130, 131, 222, 223, 224 };
 constexpr int ROD_IDS[] = { 134, 190, 16, 17 };
@@ -56,12 +66,16 @@ struct DecoObj {
     bool flip = false;
     float bright = -1.f; // HSV brightness multiplier, -1 = untouched
 
-    // color triggers only
+    // color / pulse triggers only
     bool trigger = false;
+    bool pulse = false;
     ccColor3B rgb {};
     int target = 0;
     float opacity = 1.f;
-    float duration = 0.f;
+    float duration = 0.f;   // color: fade time
+    float fadeIn = 0.f;     // pulse
+    float hold = 0.f;       // pulse
+    float fadeOut = 0.f;    // pulse
 };
 
 struct ModuleOut {
@@ -173,7 +187,72 @@ std::vector<int> parseIDs(std::string const& text) {
     return ids;
 }
 
+ccColor3B lighten(ccColor3B c, float t) {
+    auto l = [t](GLubyte v) { return static_cast<GLubyte>(std::clamp(std::lround(v + (255 - v) * t), 0L, 255L)); };
+    return { l(c.r), l(c.g), l(c.b) };
+}
+
+// Maps level time (seconds) to X, following the start speed and speed portals.
+struct SpeedMap {
+    struct Seg { float x, t, speed; };
+    std::vector<Seg> segs;
+
+    static float speedFor(int portalID) {
+        switch (portalID) {
+            case 200: return SPEED_HALF;
+            case 201: return SPEED_1X;
+            case 202: return SPEED_2X;
+            case 203: return SPEED_3X;
+            case 1334: return SPEED_4X;
+            default: return 0.f;
+        }
+    }
+
+    static SpeedMap build(LevelEditorLayer* lel) {
+        SpeedMap map;
+        float start = SPEED_1X;
+        if (lel->m_levelSettings) {
+            switch (static_cast<int>(lel->m_levelSettings->m_startSpeed)) {
+                case 1: start = SPEED_HALF; break;
+                case 2: start = SPEED_2X; break;
+                case 3: start = SPEED_3X; break;
+                case 4: start = SPEED_4X; break;
+                default: start = SPEED_1X; break;
+            }
+        }
+        std::vector<std::pair<float, float>> portals;
+        if (lel->m_objects) {
+            for (auto obj : CCArrayExt<GameObject*>(lel->m_objects)) {
+                if (!obj) continue;
+                float sp = speedFor(obj->m_objectID);
+                if (sp > 0.f) portals.push_back({ obj->getPositionX(), sp });
+            }
+        }
+        std::sort(portals.begin(), portals.end());
+        map.segs.push_back({ 0.f, 0.f, start });
+        for (auto [x, sp] : portals) {
+            if (x <= map.segs.back().x) { map.segs.back().speed = sp; continue; }
+            auto const& last = map.segs.back();
+            float t = last.t + (x - last.x) / last.speed;
+            map.segs.push_back({ x, t, sp });
+        }
+        return map;
+    }
+
+    float xAt(float t) const {
+        auto const* seg = &segs.front();
+        for (auto const& s : segs) {
+            if (s.t <= t) seg = &s;
+            else break;
+        }
+        return seg->x + (t - seg->t) * seg->speed;
+    }
+};
+
 std::string objectString(DecoObj const& o, float offsetY, int group) {
+    if (o.pulse) {
+        return fmt::format("1,{},2,{:.2f},3,{:.1f}", ID_PULSE_TRIGGER, o.x, o.y - offsetY);
+    }
     if (o.trigger) {
         return fmt::format(
             "1,{},2,{:.1f},3,{:.1f},7,{},8,{},9,{},10,{:.2f},23,{},35,{:.2f}",
@@ -248,6 +327,10 @@ GenerateResult generate(LevelEditorLayer* lel, DecoPlan const& plan, bool wholeL
     int mainCh = static_cast<int>(mod->getSettingValue<int64_t>("main-channel"));
     int accentCh = static_cast<int>(mod->getSettingValue<int64_t>("accent-channel"));
     int fillCh = static_cast<int>(mod->getSettingValue<int64_t>("fill-channel"));
+    int blockCh = static_cast<int>(mod->getSettingValue<int64_t>("block-channel"));
+    int blockDetailCh = static_cast<int>(mod->getSettingValue<int64_t>("block-detail-channel"));
+    float syncBpm = static_cast<float>(mod->getSettingValue<int64_t>("sync-bpm"));
+    if (plan.bpm > 0.f) syncBpm = plan.bpm;
     bool colorTriggers = mod->getSettingValue<bool>("color-triggers");
     int group = static_cast<int>(mod->getSettingValue<int64_t>("deco-group"));
     size_t maxObjects = static_cast<size_t>(std::max<int64_t>(50, mod->getSettingValue<int64_t>("max-objects")));
@@ -270,6 +353,7 @@ GenerateResult generate(LevelEditorLayer* lel, DecoPlan const& plan, bool wholeL
     std::vector<CCRect> others;
     std::vector<int> learned;
     std::unordered_map<int, int> solidIDs;
+    std::vector<GameObject*> solidObjs;
     for (auto obj : CCArrayExt<GameObject*>(source)) {
         if (!obj) continue;
         if (!isTarget(obj)) {
@@ -284,6 +368,7 @@ GenerateResult generate(LevelEditorLayer* lel, DecoPlan const& plan, bool wholeL
         if (obj->m_objectType == GameObjectType::Solid) {
             solids.push_back(r);
             solidIDs[obj->m_objectID]++;
+            solidObjs.push_back(obj);
         }
         else {
             others.push_back(r);
@@ -700,6 +785,52 @@ GenerateResult generate(LevelEditorLayer* lel, DecoPlan const& plan, bool wholeL
         modules.push_back(std::move(m));
     }
 
+    // ---- Details: tiny crosses / triangles near corners + dot clusters -----
+    if (plan[M_Details] > 0) {
+        ModuleOut m;
+        int d = plan[M_Details];
+        // Small accents sitting just off the outer corners of the build.
+        for (auto const& cell : cellList) {
+            int cx = cell.first, cy = cell.second;
+            bool up = !has(cx, cy + 1), down = !has(cx, cy - 1), left = !has(cx - 1, cy), right = !has(cx + 1, cy);
+            auto corner = [&](bool a, bool b, float dx, float dy) {
+                if (!(a && b) || !chance(0.35f * d * D)) return;
+                DecoObj o;
+                o.id = pick(DETAIL_IDS);
+                o.x = (cx + 0.5f + dx) * UNIT;
+                o.y = (cy + 0.5f + dy) * UNIT;
+                o.rot = 45.f * ri(0, 7);
+                o.scale = rf(0.35f, 0.6f) * S;
+                o.color = accentCh;
+                o.zLayer = Z_T1;
+                o.zOrder = 15;
+                if (aboveGround(o.y)) m.objs.push_back(o);
+            };
+            corner(up, left, -0.75f, 0.75f);
+            corner(up, right, 0.75f, 0.75f);
+            corner(down, left, -0.75f, -0.75f);
+            corner(down, right, 0.75f, -0.75f);
+        }
+        // Dot clusters floating in the background.
+        int n = std::clamp(static_cast<int>(widthBlocks / 8.f * d * D) + d, d, 120 * d);
+        for (int i = 0, tries = 0; i < n && tries < n * 4; tries++) {
+            DecoObj o;
+            o.id = pick(DOT_GROUP_IDS);
+            o.x = rf(minX - 30.f, maxX + 30.f);
+            o.y = rf(minY, maxY + 120.f);
+            if (insideSolid(o.x, o.y) || !aboveGround(o.y)) continue;
+            o.rot = 90.f * ri(0, 3);
+            o.scale = rf(0.6f, 1.1f) * S;
+            o.color = mainCh;
+            o.bright = 0.75f;
+            o.zLayer = Z_B2;
+            o.zOrder = -4;
+            m.objs.push_back(o);
+            i++;
+        }
+        modules.push_back(std::move(m));
+    }
+
     // ---- Custom / learned deco -------------------------------------------
     std::vector<int> pool = customIDs;
     for (int id : learned) {
@@ -770,7 +901,23 @@ GenerateResult generate(LevelEditorLayer* lel, DecoPlan const& plan, bool wholeL
         modules.push_back(std::move(m));
     }
 
-    // ---- Color triggers: palette per section (+ background & ground) -------
+    // ---- Block restyle: put the layout's blocks on the block channels -------
+    bool restyle = plan.blockStyle != BlockStyle::Keep && !solidObjs.empty();
+    auto blockColors = [&](ccColor3B mainC, ccColor3B accentC) -> std::pair<ccColor3B, ccColor3B> {
+        switch (plan.blockStyle) {
+            case BlockStyle::Dark: return { ccColor3B { 14, 14, 20 }, accentC };
+            case BlockStyle::Bright: return { lighten(mainC, 0.35f), ccColor3B { 255, 255, 255 } };
+            default: return { darken(mainC, 0.24f), mainC };
+        }
+    };
+    int restyled = 0;
+
+    // Each Generate nudges its triggers a hair to the right, so the newest colors win.
+    int64_t gen = mod->getSavedValue<int64_t>("trigger-gen", 0) + 1;
+    mod->setSavedValue<int64_t>("trigger-gen", gen);
+    float genOffset = static_cast<float>(gen % 200) * 0.05f;
+
+    // ---- Color triggers: palette per section (+ blocks, background & ground) --
     std::vector<DecoObj> triggers;
     if (colorTriggers) {
         int sections = std::max(1, plan.sections);
@@ -781,7 +928,7 @@ GenerateResult generate(LevelEditorLayer* lel, DecoPlan const& plan, bool wholeL
             ccColor3B mainC = hueShift(plan.main, shift);
             ccColor3B accentC = hueShift(plan.accent, shift);
             ccColor3B fillC = hueShift(fillColor, shift);
-            float x = s == 0 ? std::max(15.f, minX - 45.f) : minX + span * s;
+            float x = (s == 0 ? std::max(15.f, minX - 45.f) : minX + span * s) + genOffset;
             float dur = s == 0 ? 0.f : 0.8f;
             int k = 0;
             auto add = [&](int target, ccColor3B c, float opacity) {
@@ -798,6 +945,11 @@ GenerateResult generate(LevelEditorLayer* lel, DecoPlan const& plan, bool wholeL
             add(mainCh, mainC, 1.f);
             add(accentCh, accentC, 1.f);
             if (fillUsesChannel && plan[M_Fill] > 0) add(fillCh, fillC, fillOpacity);
+            if (restyle) {
+                auto [base, detail] = blockColors(mainC, accentC);
+                add(blockCh, base, 1.f);
+                add(blockDetailCh, detail, 1.f);
+            }
             if (plan[M_Background] > 0) {
                 add(CH_BG, darken(mainC, 0.16f), 1.f);
                 add(CH_GROUND, darken(mainC, 0.3f), 1.f);
@@ -807,8 +959,52 @@ GenerateResult generate(LevelEditorLayer* lel, DecoPlan const& plan, bool wholeL
         }
     }
 
+    // ---- Sync: pulse the deco colors on the beat --------------------------
+    int pulses = 0;
+    if (plan[M_Sync] > 0 && syncBpm >= 40.f) {
+        auto speeds = SpeedMap::build(lel);
+        float beat = 60.f / std::clamp(syncBpm, 40.f, 400.f);
+        int every = plan[M_Sync] == 1 ? 2 : 1;
+        float offset = lel->m_levelSettings ? lel->m_levelSettings->m_songOffset : 0.f;
+        // First beat at or after the song offset, in level time.
+        float firstBeat = std::ceil(offset / beat) * beat - offset;
+        float fadeOut = std::min(0.6f, beat * every * 0.8f);
+        float fromX = wholeLevel ? 0.f : minX - 15.f;
+        float toX = maxX + 15.f;
+        ccColor3B mainFlash = lighten(plan.main, 0.55f);
+        constexpr int kMaxPulses = 4000;
+        for (int b = 0; pulses < kMaxPulses; b += every) {
+            float t = firstBeat + b * beat;
+            float x = speeds.xAt(t);
+            if (x > toX) break;
+            if (x < fromX) continue;
+            int k = 0;
+            auto add = [&](int target, ccColor3B c, float strength) {
+                DecoObj p;
+                p.trigger = true;
+                p.pulse = true;
+                p.x = x;
+                p.y = maxY + 210.f + 30.f * k++;
+                p.rgb = c;
+                p.target = target;
+                p.fadeIn = 0.f;
+                p.hold = 0.04f * strength;
+                p.fadeOut = fadeOut * strength;
+                triggers.push_back(p);
+                pulses++;
+            };
+            bool downbeat = (b / every) % 4 == 0;
+            add(accentCh, ccColor3B { 255, 255, 255 }, 1.f);
+            add(mainCh, mainFlash, downbeat ? 1.f : 0.7f);
+            if (fillUsesChannel && plan[M_Fill] > 0) add(fillCh, ccColor3B { 255, 255, 255 }, 0.8f);
+            if (plan[M_Sync] >= 3 && downbeat) add(CH_BG, lighten(darken(plan.main, 0.16f), 0.25f), 1.2f);
+        }
+    }
+
     // ---- Keep under the object budget (shrink every module evenly) ---------
-    size_t budget = maxObjects > triggers.size() + 1 ? maxObjects - triggers.size() : 1;
+    // (beat pulses have their own cap and don't eat into the deco budget)
+    size_t colorTriggerCount = triggers.size() - static_cast<size_t>(pulses);
+    size_t budget = maxObjects > colorTriggerCount + 1 ? maxObjects - colorTriggerCount : 1;
     size_t total = 0;
     for (auto const& m : modules) total += m.objs.size();
     if (total > budget) {
@@ -849,9 +1045,20 @@ GenerateResult generate(LevelEditorLayer* lel, DecoPlan const& plan, bool wholeL
         return res;
     }
 
+    // Recolor the layout's own blocks (only once the deco and its triggers exist).
+    if (restyle) {
+        for (auto obj : solidObjs) {
+            if (!obj || obj->m_isNoTouch) continue; // skip earlier GdGenesis fill pieces
+            if (obj->m_baseColor) obj->m_baseColor->m_colorID = blockCh;
+            if (obj->m_detailColor) obj->m_detailColor->m_colorID = blockDetailCh;
+            restyled++;
+        }
+    }
+
     // Make sure everything landed exactly where it was planned.
     auto first = static_cast<GameObject*>(created->objectAtIndex(0));
-    if (first && first->m_objectID == (all[0].trigger ? ID_COLOR_TRIGGER : all[0].id)) {
+    int firstID = all[0].pulse ? ID_PULSE_TRIGGER : (all[0].trigger ? ID_COLOR_TRIGGER : all[0].id);
+    if (first && first->m_objectID == firstID) {
         CCPoint delta = CCPoint(all[0].x, all[0].y) - first->getPosition();
         if (std::abs(delta.x) > 0.5f || std::abs(delta.y) > 0.5f) {
             for (auto obj : CCArrayExt<GameObject*>(created)) {
@@ -860,9 +1067,35 @@ GenerateResult generate(LevelEditorLayer* lel, DecoPlan const& plan, bool wholeL
         }
     }
 
-    // Fill pieces are visual only: never let them block the player.
+    // Set every trigger's settings directly on the object (same order as created),
+    // and make fill pieces visual only so they never block the player.
+    size_t nextTrigger = 0;
     for (auto obj : CCArrayExt<GameObject*>(created)) {
-        if (obj && (obj->m_objectType == GameObjectType::Solid || obj->m_objectType == GameObjectType::Hazard)) {
+        if (!obj) continue;
+        if (obj->m_objectID == ID_COLOR_TRIGGER || obj->m_objectID == ID_PULSE_TRIGGER) {
+            while (nextTrigger < triggers.size() &&
+                   (triggers[nextTrigger].pulse ? ID_PULSE_TRIGGER : ID_COLOR_TRIGGER) != obj->m_objectID) {
+                nextTrigger++;
+            }
+            if (nextTrigger >= triggers.size()) continue;
+            auto const& spec = triggers[nextTrigger++];
+            auto effect = typeinfo_cast<EffectGameObject*>(obj);
+            if (!effect) continue;
+            effect->m_targetColor = spec.target;
+            effect->m_triggerTargetColor = spec.rgb;
+            if (spec.pulse) {
+                effect->m_pulseTargetType = 0; // color channel
+                effect->m_fadeInDuration = spec.fadeIn;
+                effect->m_holdDuration = spec.hold;
+                effect->m_fadeOutDuration = spec.fadeOut;
+            }
+            else {
+                effect->m_duration = spec.duration;
+                effect->m_opacity = spec.opacity;
+            }
+            continue;
+        }
+        if (obj->m_objectType == GameObjectType::Solid || obj->m_objectType == GameObjectType::Hazard) {
             obj->m_isNoTouch = true;
         }
     }
@@ -878,6 +1111,8 @@ GenerateResult generate(LevelEditorLayer* lel, DecoPlan const& plan, bool wholeL
 
     res.ok = true;
     res.created = static_cast<int>(created->count());
+    res.restyled = restyled;
+    res.pulses = pulses;
     return res;
 }
 

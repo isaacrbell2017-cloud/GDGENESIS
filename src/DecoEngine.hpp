@@ -8,6 +8,8 @@ namespace genesis {
     struct GenerateResult {
         bool ok = false;
         int created = 0;
+        int restyled = 0; // layout blocks recolored
+        int pulses = 0;   // beat pulse triggers
         std::string error;
     };
 

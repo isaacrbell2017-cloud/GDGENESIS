@@ -36,12 +36,13 @@ struct Chip {
     char const* prompt;
 };
 constexpr Chip kChips[] = {
-    { "Neon", "neon glow with inner glow fill, magenta and cyan" },
-    { "Space", "deep space with stars, glow orbs and dots fill" },
-    { "Nature", "lush forest with grass, bushes and checker fill" },
+    { "Modern", "modern neon glow with inner glow fill, synced to the beat, magenta and cyan, high quality details" },
+    { "Null", "null space void with glowing outlines, rim fill and glitch details, synced to the beat" },
+    { "Space", "deep space with stars, glow orbs and dots fill, purple and white, high quality details" },
+    { "Heaven", "heavenly angelic sky with clouds, glowing edges and spires, white and gold, synced" },
+    { "Hell", "hell inferno with embers, chains and glowing edges, red and orange, synced to the beat" },
     { "Castle", "dark dungeon with hanging chains, tiles fill and orange glow" },
-    { "Lava", "hell inferno with embers and glowing edges, red and orange" },
-    { "Ice", "frozen ice with snow particles and crystal spires" },
+    { "Nature", "lush forest with grass, bushes and checker fill" },
 };
 
 std::string extractText(matjson::Value const& body) {
@@ -280,6 +281,12 @@ void GenesisPopup::buildOptionRow() {
     fillBtn->setID("fill-button"_spr);
     optMenu->addChild(fillBtn);
 
+    m_blocksSprite = ButtonSprite::create("Blocks: Themed", "bigFont.fnt", "GJ_button_03.png", .7f);
+    m_blocksSprite->setScale(.55f);
+    auto blocksBtn = CCMenuItemSpriteExtra::create(m_blocksSprite, this, menu_selector(GenesisPopup::onBlocks));
+    blocksBtn->setID("blocks-button"_spr);
+    optMenu->addChild(blocksBtn);
+
     auto modSprite = ButtonSprite::create("Modules", "bigFont.fnt", "GJ_button_05.png", .7f);
     modSprite->setScale(.55f);
     auto modBtn = CCMenuItemSpriteExtra::create(modSprite, this, menu_selector(GenesisPopup::onModules));
@@ -313,6 +320,24 @@ void GenesisPopup::refreshOptions() {
     if (m_selSprite) m_selSprite->updateBGImage(whole ? "GJ_button_04.png" : "GJ_button_01.png");
     if (m_wholeSprite) m_wholeSprite->updateBGImage(whole ? "GJ_button_01.png" : "GJ_button_04.png");
     if (m_fillSprite) m_fillSprite->setString(fillLabel(m_choices.fill).c_str());
+    if (m_blocksSprite) {
+        auto style = static_cast<BlockStyle>(std::clamp(m_choices.blocks, 0, kBlockStyleCount - 1));
+        m_blocksSprite->setString(fmt::format("Blocks: {}", blockStyleName(style)).c_str());
+    }
+}
+
+void GenesisPopup::onBlocks(CCObject*) {
+    genesis::sfx("counter003.ogg");
+    m_choices.blocks = (m_choices.blocks + 1) % kBlockStyleCount;
+    genesis::saveChoices(m_choices);
+    this->refreshOptions();
+    static constexpr char const* kHelp[] = {
+        "Blocks: Keep - your blocks keep their colors",
+        "Blocks: Themed - blocks get the best colors for the theme",
+        "Blocks: Dark - black blocks with bright theme details",
+        "Blocks: Bright - light theme-colored blocks",
+    };
+    this->setStatus(kHelp[std::clamp(m_choices.blocks, 0, kBlockStyleCount - 1)], kYellow, true);
 }
 
 bool GenesisPopup::wholeLevel() const {
@@ -447,7 +472,9 @@ void GenesisPopup::onInfo(CCObject*) {
             "<cg>1.</c> Select block(s), or tap <cy>Whole Level</c> to decorate your entire layout.\n"
             "<cg>2.</c> Pick a quality: <cy>Featured</c>, <co>Epic</c>, <cp>Legendary</c> or <cr>Mythic</c>. Higher = more detail, glow and color sections.\n"
             "<cg>3.</c> Type a prompt (like <cy>neon glow</c> or <cy>space with checker fill</c>) and press <cg>Generate</c>.\n\n"
-            "<cy>Fill</c> decorates inside the blocks. <cy>Modules</c> lets you force any part on or off.\n"
+            "<cy>Fill</c> decorates inside the blocks. <cy>Blocks</c> recolors your layout blocks to match.\n"
+            "<cy>Sync</c> pulses the colors on the beat (add a BPM like <cy>140 bpm</c> to your prompt).\n"
+            "<cy>Modules</c> lets you force any part on or off.\n"
             "Don't like it? Press the editor's Undo and generate again.\n"
             "Channels: main <cy>{}</c>, accent <cy>{}</c>, fill <cy>{}</c>.",
             mainCh, accentCh, fillCh
@@ -587,10 +614,13 @@ void GenesisPopup::applyPlan(DecoPlan plan, std::string const& note) {
     }
 
     genesis::sfx("achievement_01.ogg");
+    std::string extras;
+    if (result.restyled > 0) extras += fmt::format(", {} blocks recolored", result.restyled);
+    if (result.pulses > 0) extras += fmt::format(", {} beat pulses", result.pulses);
     Notification::create(
-        fmt::format("{} ({}): {} deco objects added{}", plan.name, tierName(plan.tier), result.created,
+        fmt::format("{} ({}): {} objects added{}{}", plan.name, tierName(plan.tier), result.created, extras,
             plan.fromAI ? " by Claude" : ""),
-        NotificationIcon::Success, 2.5f
+        NotificationIcon::Success, 3.f
     )->show();
     if (!note.empty()) {
         Notification::create(note, NotificationIcon::Warning, 3.f)->show();
@@ -617,7 +647,7 @@ void GenesisPopup::onClose(CCObject* sender) {
 
 namespace {
 constexpr float kMW = 380.f;
-constexpr float kMH = 250.f;
+constexpr float kMH = 290.f;
 constexpr char const* kStateNames[] = { "Auto", "On", "Off" };
 constexpr char const* kStateBGs[] = { "GJ_button_04.png", "GJ_button_01.png", "GJ_button_06.png" };
 constexpr float kDensitySteps[] = { 0.5f, 0.75f, 1.f, 1.25f, 1.5f, 2.f, 2.5f, 3.f };
@@ -659,7 +689,7 @@ bool GenesisModulesPopup::init(std::function<void()> onChanged) {
         btn->setTag(m);
         int col = m % 3;
         int row = m / 3;
-        menu->addChildAtPosition(btn, Anchor::Top, { -118.f + 118.f * col, -70.f - 30.f * row });
+        menu->addChildAtPosition(btn, Anchor::Top, { -118.f + 118.f * col, -68.f - 28.f * row });
     }
 
     // Density: < 1.00x >

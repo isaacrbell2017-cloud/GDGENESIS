@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.3.0
+- Blocks button: recolor your layout blocks to match (Keep, Themed, Dark, Bright).
+- Beat sync: pulse triggers on every beat, following the level's speed and speed portals (BPM from the prompt or settings).
+- Details module: tiny crosses, triangles and dot clusters for Mythic-level polish.
+- New Null Space theme; better Heavenly, Hell and Modern looks; new quick prompts.
+- Generating again now overrides earlier colors instead of fighting them.
+- Triggers are configured directly on the objects for reliability.
+
 ## v1.2.0
 - Added Claude Opus 5.5 and a Claude Effort setting (Default, Low, Medium, High, Extra High, Max).
 - AI Timeout 0 = Auto: higher effort waits longer before falling back to offline.

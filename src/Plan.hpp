@@ -23,9 +23,14 @@ char const* tierName(Tier t);
 // The modules the generator can build. Order matters (saved settings use it).
 enum Module : int {
     M_Lights, M_Glow, M_Fill, M_Aura, M_Particles, M_Chains,
-    M_Grass, M_Bushes, M_Clouds, M_Rods, M_Background, M_Custom,
+    M_Grass, M_Bushes, M_Clouds, M_Rods, M_Details, M_Sync, M_Background, M_Custom,
     M_Count
 };
+
+// How the layout's own blocks get recolored.
+enum class BlockStyle : int { Keep = 0, Themed = 1, Dark = 2, Bright = 3 };
+constexpr int kBlockStyleCount = 4;
+char const* blockStyleName(BlockStyle s);
 char const* moduleName(int m);
 constexpr int kUserModuleCount = M_Background + 1; // modules shown on the Modules page
 
@@ -46,6 +51,10 @@ struct DecoPlan {
     Tier tier = Tier::Featured;
     int promptTier = -1;          // tier named in the prompt ("mythic"), -1 = none
     bool promptWholeLevel = false; // prompt said "whole level"
+    bool promptRestyle = false;   // prompt asked to recolor the blocks
+    BlockStyle themeBlocks = BlockStyle::Themed; // what "Themed" means for this theme
+    BlockStyle blockStyle = BlockStyle::Keep;
+    float bpm = 0.f;              // 0 = use the setting
     bool fromAI = false;
 
     int& operator[](int m) { return mods[m]; }
@@ -57,6 +66,7 @@ struct UserChoices {
     Tier tier = Tier::Epic;
     bool wholeLevel = false;
     int fill = 0;                       // 0 Auto, 1 Off, 2+ = FillStyle + 2
+    int blocks = 1;                     // BlockStyle
     std::array<int, kUserModuleCount> overrides {}; // 0 Auto, 1 On, 2 Off
     float density = 1.f;
 };

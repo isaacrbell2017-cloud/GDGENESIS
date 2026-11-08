@@ -5,6 +5,7 @@
 #include <array>
 #include <cctype>
 #include <cmath>
+#include <cstdlib>
 #include <optional>
 #include <vector>
 
@@ -32,10 +33,20 @@ char const* tierName(Tier t) {
     return "Epic";
 }
 
+char const* blockStyleName(BlockStyle s) {
+    switch (s) {
+        case BlockStyle::Keep: return "Keep";
+        case BlockStyle::Themed: return "Themed";
+        case BlockStyle::Dark: return "Dark";
+        case BlockStyle::Bright: return "Bright";
+    }
+    return "Keep";
+}
+
 char const* moduleName(int m) {
     static constexpr std::array<char const*, M_Count> names = {
         "Lights", "Edge Glow", "Fill", "Aura", "Particles", "Chains",
-        "Grass", "Bushes", "Clouds", "Spires", "BG Colors", "Custom"
+        "Grass", "Bushes", "Clouds", "Spires", "Details", "Sync", "BG Colors", "Custom"
     };
     return (m >= 0 && m < M_Count) ? names[m] : "?";
 }
@@ -43,7 +54,7 @@ char const* moduleName(int m) {
 namespace {
 
 // Module intensities in this order:
-// Lights, Glow, Fill, Aura, Particles, Chains, Grass, Bushes, Clouds, Rods, Background
+// Lights, Glow, Fill, Aura, Particles, Chains, Grass, Bushes, Clouds, Rods, Details, Sync, Background
 using ModRow = std::array<int, kUserModuleCount>;
 
 struct Theme {
@@ -53,38 +64,41 @@ struct Theme {
     ccColor3B accent;
     ModRow mods;
     FillStyle fill;
+    BlockStyle blocks;
 };
 
 std::vector<Theme> const& themes() {
     static std::vector<Theme> list = {
         {{"neon", "glow", "glowy", "cyber", "cyberpunk", "synthwave", "modern", "electric", "disco", "club", "rgb"},
-            "Neon Glow", {255, 0, 200}, {0, 230, 255}, {3, 2, 1, 2, 2, 0, 0, 0, 0, 0, 1}, FillStyle::Glow},
+            "Neon Glow", {255, 0, 200}, {0, 230, 255}, {3, 2, 1, 2, 2, 0, 0, 0, 0, 0, 1, 1, 1}, FillStyle::Glow, BlockStyle::Dark},
+        {{"null", "nullspace", "void", "glitch", "glitchy", "monochrome", "abstract", "corrupted", "static", "minimalist", "nothingness"},
+            "Null Space", {255, 255, 255}, {170, 190, 255}, {2, 2, 1, 0, 2, 0, 0, 0, 0, 1, 2, 1, 1}, FillStyle::Rim, BlockStyle::Dark},
         {{"space", "galaxy", "cosmic", "stars", "night", "universe", "nebula", "planet", "alien", "moon"},
-            "Deep Space", {120, 40, 255}, {255, 255, 255}, {1, 1, 1, 3, 3, 0, 0, 0, 0, 1, 1}, FillStyle::Dots},
+            "Deep Space", {120, 40, 255}, {255, 255, 255}, {1, 1, 1, 3, 3, 0, 0, 0, 0, 1, 1, 0, 1}, FillStyle::Dots, BlockStyle::Dark},
         {{"nature", "forest", "jungle", "garden", "meadow", "spring", "tree", "trees", "leaf", "flower", "flowers"},
-            "Forest", {60, 200, 80}, {220, 255, 120}, {0, 0, 0, 1, 1, 0, 3, 2, 1, 0, 1}, FillStyle::Checker},
-        {{"sky", "heaven", "heavenly", "dream", "dreamy", "angel", "holy", "air", "fluffy"},
-            "Sky Dream", {255, 255, 255}, {140, 210, 255}, {1, 1, 0, 1, 1, 0, 0, 0, 3, 0, 1}, FillStyle::Glow},
+            "Forest", {60, 200, 80}, {220, 255, 120}, {0, 0, 0, 1, 1, 0, 3, 2, 1, 0, 1, 0, 1}, FillStyle::Checker, BlockStyle::Themed},
+        {{"sky", "heaven", "heavenly", "dream", "dreamy", "angel", "angelic", "holy", "divine", "fluffy", "paradise"},
+            "Heavenly", {255, 255, 255}, {255, 215, 110}, {1, 2, 1, 2, 2, 0, 0, 0, 3, 1, 1, 0, 1}, FillStyle::Glow, BlockStyle::Bright},
         {{"castle", "dungeon", "prison", "medieval", "knight", "fortress", "ruins", "temple"},
-            "Dungeon", {110, 110, 125}, {255, 150, 40}, {1, 1, 1, 1, 1, 3, 0, 0, 0, 1, 1}, FillStyle::Tiles},
-        {{"fire", "lava", "hell", "inferno", "volcano", "demon", "demonic", "magma", "burning", "flame", "flames", "nether"},
-            "Inferno", {255, 50, 20}, {255, 170, 0}, {1, 2, 1, 2, 3, 1, 0, 0, 0, 0, 1}, FillStyle::Glow},
+            "Dungeon", {110, 110, 125}, {255, 150, 40}, {1, 1, 1, 1, 1, 3, 0, 0, 0, 1, 1, 0, 1}, FillStyle::Tiles, BlockStyle::Themed},
+        {{"fire", "lava", "hell", "hellish", "inferno", "volcano", "demon", "demonic", "magma", "burning", "flame", "flames", "nether"},
+            "Inferno", {255, 50, 20}, {255, 170, 0}, {1, 2, 1, 2, 3, 1, 0, 0, 0, 0, 1, 1, 1}, FillStyle::Glow, BlockStyle::Dark},
         {{"ice", "frost", "frozen", "snow", "snowy", "winter", "glacier", "cold", "arctic", "christmas"},
-            "Frozen", {80, 220, 255}, {255, 255, 255}, {1, 2, 1, 1, 3, 0, 0, 0, 1, 2, 1}, FillStyle::Glow},
+            "Frozen", {80, 220, 255}, {255, 255, 255}, {1, 2, 1, 1, 3, 0, 0, 0, 1, 2, 1, 0, 1}, FillStyle::Glow, BlockStyle::Themed},
         {{"ocean", "water", "sea", "underwater", "aquatic", "wave", "waves", "deep", "reef"},
-            "Ocean", {30, 110, 255}, {80, 255, 240}, {1, 1, 1, 2, 3, 0, 0, 0, 0, 0, 1}, FillStyle::Glow},
+            "Ocean", {30, 110, 255}, {80, 255, 240}, {1, 1, 1, 2, 3, 0, 0, 0, 0, 0, 1, 0, 1}, FillStyle::Glow, BlockStyle::Themed},
         {{"tech", "factory", "machine", "robot", "industrial", "mechanical", "circuit", "digital", "computer", "lab"},
-            "Tech", {140, 150, 165}, {255, 220, 40}, {2, 1, 1, 1, 1, 1, 0, 0, 0, 2, 1}, FillStyle::Tiles},
+            "Tech", {140, 150, 165}, {255, 220, 40}, {2, 1, 1, 1, 1, 1, 0, 0, 0, 2, 2, 0, 1}, FillStyle::Tiles, BlockStyle::Themed},
         {{"toxic", "acid", "poison", "radioactive", "nuclear", "slime", "sludge", "venom"},
-            "Toxic", {120, 255, 30}, {30, 160, 40}, {2, 2, 1, 2, 2, 0, 0, 0, 0, 0, 1}, FillStyle::Glow},
+            "Toxic", {120, 255, 30}, {30, 160, 40}, {2, 2, 1, 2, 2, 0, 0, 0, 0, 0, 1, 0, 1}, FillStyle::Glow, BlockStyle::Dark},
         {{"candy", "sweet", "cute", "pastel", "kawaii", "sugar", "bubblegum", "cotton", "cupcake"},
-            "Candy", {255, 130, 200}, {255, 255, 255}, {1, 1, 1, 1, 2, 0, 0, 1, 1, 0, 1}, FillStyle::Checker},
+            "Candy", {255, 130, 200}, {255, 255, 255}, {1, 1, 1, 1, 2, 0, 0, 1, 1, 0, 1, 0, 1}, FillStyle::Checker, BlockStyle::Bright},
         {{"spooky", "horror", "ghost", "haunted", "halloween", "creepy", "scary", "dark", "shadow", "evil"},
-            "Haunted", {110, 40, 170}, {255, 120, 20}, {1, 1, 1, 2, 1, 2, 0, 0, 0, 0, 1}, FillStyle::Dots},
+            "Haunted", {110, 40, 170}, {255, 120, 20}, {1, 1, 1, 2, 1, 2, 0, 0, 0, 0, 1, 0, 1}, FillStyle::Dots, BlockStyle::Dark},
         {{"gold", "golden", "royal", "luxury", "king", "queen", "treasure", "rich", "palace"},
-            "Royal Gold", {255, 200, 40}, {170, 60, 255}, {2, 1, 1, 1, 2, 0, 0, 0, 0, 2, 1}, FillStyle::Rim},
+            "Royal Gold", {255, 200, 40}, {170, 60, 255}, {2, 1, 1, 1, 2, 0, 0, 0, 0, 2, 2, 0, 1}, FillStyle::Rim, BlockStyle::Themed},
         {{"sunset", "sunrise", "dusk", "evening", "retro", "vapor", "vaporwave", "summer", "beach"},
-            "Sunset", {255, 120, 40}, {255, 80, 170}, {1, 2, 1, 2, 1, 0, 0, 0, 2, 0, 1}, FillStyle::Glow},
+            "Sunset", {255, 120, 40}, {255, 80, 170}, {1, 2, 1, 2, 1, 0, 0, 0, 2, 0, 1, 0, 1}, FillStyle::Glow, BlockStyle::Themed},
     };
     return list;
 }
@@ -124,6 +138,8 @@ std::array<std::vector<char const*>, M_Count> const& moduleWords() {
         /* Bushes */ {"bush", "bushes", "shrub", "shrubs", "foliage", "leaves", "plant", "plants"},
         /* Clouds */ {"cloud", "clouds", "cloudy", "mist", "misty"},
         /* Rods */ {"rod", "rods", "spire", "spires", "antenna", "antennas", "pole", "poles", "crystal", "crystals", "pillar", "pillars"},
+        /* Details */ {"detail", "details", "detailed", "intricate", "quality", "polished"},
+        /* Sync */ {"sync", "synced", "syncs", "beat", "beats", "pulse", "pulses", "pulsing", "music", "rhythm", "bpm"},
         /* Background */ {"background", "bg", "colors", "colours", "colored", "coloured"},
         /* Custom */ {"custom", "mine"},
     }};
@@ -208,7 +224,7 @@ std::optional<double> number(matjson::Value const& v) {
 
 bool anyVisual(DecoPlan const& p) {
     for (int m = 0; m < M_Count; m++) {
-        if (m != M_Background && p[m] > 0) return true;
+        if (m != M_Background && m != M_Sync && p[m] > 0) return true;
     }
     return false;
 }
@@ -221,7 +237,7 @@ DecoPlan planFromPrompt(std::string const& prompt) {
     auto tokens = tokenize(prompt);
     DecoPlan plan;
     plan.mods = {};
-    ModRow defaults = {2, 1, 0, 1, 2, 0, 0, 0, 0, 0, 0};
+    ModRow defaults = {2, 1, 0, 1, 2, 0, 0, 0, 0, 0, 1, 0, 0};
     for (int m = 0; m < kUserModuleCount; m++) plan[m] = defaults[m];
 
     // 1. Theme: the one with the most keyword hits wins.
@@ -246,6 +262,7 @@ DecoPlan planFromPrompt(std::string const& prompt) {
         plan.accent = th.accent;
         for (int m = 0; m < kUserModuleCount; m++) plan[m] = th.mods[m];
         plan.fillStyle = th.fill;
+        plan.themeBlocks = th.blocks;
     }
 
     // 2. Modules mentioned directly ("chains", "no grass", ...).
@@ -277,7 +294,7 @@ DecoPlan planFromPrompt(std::string const& prompt) {
 
     bool anyOn = false;
     for (int m = 0; m < M_Count; m++) {
-        if (m != M_Fill && m != M_Background && mentioned[m] == 1) anyOn = true;
+        if (m != M_Fill && m != M_Background && m != M_Sync && m != M_Details && mentioned[m] == 1) anyOn = true;
     }
     if (best < 0 && anyOn) {
         // No theme, but specific things asked for: build only those.
@@ -324,9 +341,37 @@ DecoPlan planFromPrompt(std::string const& prompt) {
         if (t == "small" || t == "tiny" || t == "mini") plan.scale = 0.75f;
     }
 
-    // 6. Tier and whole-level words in the prompt.
+    // 6. Tier, whole-level, block and BPM words in the prompt.
     for (size_t i = 0; i < tokens.size(); i++) {
         auto const& t = tokens[i];
+        if (t == "recolor" || t == "recolour" || t == "restyle" || t == "retexture") plan.promptRestyle = true;
+        if ((t == "change" || t == "color" || t == "colour" || t == "paint") && i + 1 < tokens.size() &&
+            (tokens[i + 1] == "the" || tokens[i + 1] == "blocks" || tokens[i + 1] == "block")) {
+            plan.promptRestyle = true;
+        }
+        if (t == "bpm") {
+            auto readNum = [](std::string const& s) -> float {
+                if (s.empty() || !std::all_of(s.begin(), s.end(), [](char c) { return c >= '0' && c <= '9'; })) return 0.f;
+                return static_cast<float>(std::atoi(s.c_str()));
+            };
+            float v = i > 0 ? readNum(tokens[i - 1]) : 0.f;
+            if (v <= 0.f && i + 1 < tokens.size()) v = readNum(tokens[i + 1]);
+            if (v >= 40.f && v <= 400.f) {
+                plan.bpm = v;
+                plan[M_Sync] = std::max(plan[M_Sync], 2);
+            }
+        }
+        // "140bpm" written together
+        if (t.size() > 3 && t.ends_with("bpm")) {
+            auto num = t.substr(0, t.size() - 3);
+            if (std::all_of(num.begin(), num.end(), [](char c) { return c >= '0' && c <= '9'; })) {
+                float v = static_cast<float>(std::atoi(num.c_str()));
+                if (v >= 40.f && v <= 400.f) {
+                    plan.bpm = v;
+                    plan[M_Sync] = std::max(plan[M_Sync], 2);
+                }
+            }
+        }
         if (t == "featured" || t == "feature") plan.promptTier = 0;
         if (t == "epic") plan.promptTier = 1;
         if (t == "legendary") plan.promptTier = 2;
@@ -360,7 +405,7 @@ bool planFromJson(std::string const& text, DecoPlan& out) {
 
     static constexpr std::array<char const*, M_Count> keys = {
         "lights", "glow", "fill", "aura", "particles", "chains",
-        "grass", "bushes", "clouds", "rods", "background", "custom"
+        "grass", "bushes", "clouds", "rods", "details", "sync", "background", "custom"
     };
     int read = 0;
     for (int m = 0; m < M_Count; m++) {
@@ -394,6 +439,15 @@ bool planFromJson(std::string const& text, DecoPlan& out) {
     if (root.contains("name")) {
         auto name = trim(root["name"].asString().unwrapOr(""));
         if (!name.empty()) plan.name = name.substr(0, 32);
+    }
+    if (root.contains("blocks")) {
+        auto style = toLower(trim(root["blocks"].asString().unwrapOr("")));
+        if (style == "dark") plan.themeBlocks = BlockStyle::Dark;
+        if (style == "bright") plan.themeBlocks = BlockStyle::Bright;
+        if (style == "themed") plan.themeBlocks = BlockStyle::Themed;
+    }
+    if (root.contains("bpm")) {
+        if (auto n = number(root["bpm"]); n && *n >= 40.0 && *n <= 400.0) plan.bpm = static_cast<float>(*n);
     }
 
     if (!anyVisual(plan)) plan[M_Particles] = 1;
@@ -434,6 +488,8 @@ void finalizePlan(DecoPlan& plan, UserChoices const& choices) {
             bump(M_Fill, 2);
             bump(M_Aura, 2);
             bump(M_Particles, 2);
+            bump(M_Details, 2);
+            bump(M_Sync, 1);
             bump(M_Background, 1);
             plan.halos = true;
             plan.density = 1.45f;
@@ -446,6 +502,8 @@ void finalizePlan(DecoPlan& plan, UserChoices const& choices) {
             bump(M_Fill, 3);
             bump(M_Aura, 3);
             bump(M_Particles, 3);
+            bump(M_Details, 3);
+            bump(M_Sync, 2);
             bump(M_Background, 1);
             plan.halos = true;
             plan.sparkles = true;
@@ -469,6 +527,12 @@ void finalizePlan(DecoPlan& plan, UserChoices const& choices) {
         if (choices.overrides[m] == 2) plan[m] = 0;
     }
 
+    // Block restyle: "Themed" picks the look that suits this theme.
+    BlockStyle blocks = static_cast<BlockStyle>(std::clamp(choices.blocks, 0, kBlockStyleCount - 1));
+    if (blocks == BlockStyle::Keep && plan.promptRestyle) blocks = BlockStyle::Themed;
+    if (blocks == BlockStyle::Themed) blocks = plan.themeBlocks;
+    plan.blockStyle = blocks;
+
     plan.density *= std::clamp(choices.density, 0.25f, 3.f);
     for (int m = 0; m < M_Count; m++) plan[m] = std::clamp(plan[m], 0, 3);
     if (!anyVisual(plan)) plan[M_Particles] = 1;
@@ -481,7 +545,8 @@ std::string aiSystemPrompt() {
         "Reply with ONLY one minified JSON object and nothing else, in this exact shape:\n"
         "{\"name\":\"short theme name\",\"main\":\"#RRGGBB\",\"accent\":\"#RRGGBB\",\"scale\":1.0,"
         "\"lights\":0,\"glow\":0,\"fill\":0,\"fillStyle\":\"Glow\",\"aura\":0,\"particles\":0,\"chains\":0,"
-        "\"grass\":0,\"bushes\":0,\"clouds\":0,\"rods\":0,\"background\":0,\"custom\":0}\n"
+        "\"grass\":0,\"bushes\":0,\"clouds\":0,\"rods\":0,\"details\":0,\"sync\":0,\"background\":0,\"custom\":0,"
+        "\"blocks\":\"Themed\",\"bpm\":0}\n"
         "Each module is an intensity from 0 (off) to 3 (max):\n"
         "lights = small light dots along the block edges\n"
         "glow = soft glow pieces along the outside of block edges (classic featured glow look)\n"
@@ -494,7 +559,11 @@ std::string aiSystemPrompt() {
         "bushes = bushes peeking over top edges\n"
         "clouds = clouds above the build\n"
         "rods = small spires on top edges\n"
+        "details = tiny crosses, triangles and dot clusters for high-detail polish\n"
+        "sync = pulse the deco colors on the music beat (1 = every 2 beats, 2 = every beat, 3 = every beat + background)\n"
         "background = 1 to also recolor the background and ground to match\n"
+        "blocks = how to recolor the layout blocks if the user wants that: Themed (theme-colored), Dark (black with bright details) or Bright\n"
+        "bpm = the song tempo if the prompt mentions one, otherwise 0\n"
         "custom = the user's own deco objects (only when the prompt says custom or my objects)\n"
         "scale is 0.6 to 1.6. main is the dominant deco color and accent the highlight color; match them to the prompt. "
         "Use 3 to 6 modules and aim for featured-quality deco that keeps the gameplay readable.";
@@ -506,6 +575,7 @@ UserChoices loadChoices() {
     c.tier = static_cast<Tier>(std::clamp<int64_t>(mod->getSavedValue<int64_t>("tier", 1), 0, 3));
     c.wholeLevel = mod->getSavedValue<bool>("whole-level", false);
     c.fill = static_cast<int>(std::clamp<int64_t>(mod->getSavedValue<int64_t>("fill", 0), 0, 1 + kFillStyleCount));
+    c.blocks = static_cast<int>(std::clamp<int64_t>(mod->getSavedValue<int64_t>("blocks", 1), 0, kBlockStyleCount - 1));
     for (int m = 0; m < kUserModuleCount; m++) {
         c.overrides[m] = static_cast<int>(std::clamp<int64_t>(
             mod->getSavedValue<int64_t>(fmt::format("module-{}", m), 0), 0, 2));
@@ -519,6 +589,7 @@ void saveChoices(UserChoices const& c) {
     mod->setSavedValue<int64_t>("tier", static_cast<int64_t>(c.tier));
     mod->setSavedValue<bool>("whole-level", c.wholeLevel);
     mod->setSavedValue<int64_t>("fill", c.fill);
+    mod->setSavedValue<int64_t>("blocks", c.blocks);
     for (int m = 0; m < kUserModuleCount; m++) {
         mod->setSavedValue<int64_t>(fmt::format("module-{}", m), c.overrides[m]);
     }

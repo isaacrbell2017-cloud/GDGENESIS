@@ -8,7 +8,7 @@
 	},
 	"id": "litchin.gdgenesis",
 	"name": "GdGenesis",
-	"version": "v1.2.0",
+	"version": "v1.3.0",
 	"developers": [
 		"Litchin"
 	],
@@ -135,11 +135,44 @@
 				"slider": false
 			}
 		},
+		"block-channel": {
+			"type": "int",
+			"name": "Block Color Channel",
+			"description": "When <cy>Blocks</c> isn't Keep, your layout blocks' main color moves to this channel and GdGenesis colors it to match the theme.",
+			"default": 53,
+			"min": 1,
+			"max": 999,
+			"control": {
+				"slider": false
+			}
+		},
+		"block-detail-channel": {
+			"type": "int",
+			"name": "Block Detail Channel",
+			"description": "Channel for your layout blocks' detail color when they are recolored.",
+			"default": 54,
+			"min": 1,
+			"max": 999,
+			"control": {
+				"slider": false
+			}
+		},
 		"color-triggers": {
 			"type": "bool",
 			"name": "Add Color Triggers",
 			"description": "Places color triggers that set the deco channels to the prompt's colors (and color sections + background on Legendary/Mythic).",
 			"default": true
+		},
+		"sync-bpm": {
+			"type": "int",
+			"name": "Sync BPM",
+			"description": "Song tempo for beat sync (Legendary, Mythic, or prompts with <cy>sync</c>). Writing a BPM in the prompt, like <cy>140 bpm</c>, overrides this.",
+			"default": 130,
+			"min": 40,
+			"max": 400,
+			"control": {
+				"slider": false
+			}
 		},
 		"deco-group": {
 			"type": "int",
