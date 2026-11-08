@@ -64,6 +64,28 @@ std::string fillLabel(int fill) {
     return std::string("Fill: ") + fillStyleName(static_cast<FillStyle>(std::clamp(fill - 2, 0, kFillStyleCount - 1)));
 }
 
+struct EffortInfo {
+    char const* api;   // value for output_config.effort, nullptr = model default
+    int maxTokens;     // thinking counts toward max_tokens
+    int autoTimeout;   // seconds
+};
+
+EffortInfo effortInfo(std::string const& effort) {
+    if (effort == "Low") return { "low", 4096, 20 };
+    if (effort == "Medium") return { "medium", 6000, 35 };
+    if (effort == "High") return { "high", 10000, 60 };
+    if (effort == "Extra High") return { "xhigh", 20000, 120 };
+    if (effort == "Max") return { "max", 32000, 180 };
+    return { nullptr, 6000, 45 };
+}
+
+std::string modelShortName(std::string const& model) {
+    if (model.find("opus") != std::string::npos) return "Opus";
+    if (model.find("sonnet") != std::string::npos) return "Sonnet";
+    if (model.find("haiku") != std::string::npos) return "Haiku";
+    return "Claude";
+}
+
 CCSprite* tierIcon(int t) {
     CCSprite* spr = CCSprite::createWithSpriteFrameName(kTierFrames[t]);
     if (!spr) spr = CCSprite::createWithSpriteFrameName("GJ_starsIcon_001.png");
@@ -302,7 +324,9 @@ std::string GenesisPopup::modeName() const {
     auto key = genesis::trim(Mod::get()->getSettingValue<std::string>("api-key"));
     if (mode == "Offline") return "Offline";
     if (key.empty()) return mode == "Claude API" ? "Claude (needs key)" : "Offline";
-    return "Claude AI";
+    auto model = modelShortName(Mod::get()->getSettingValue<std::string>("model"));
+    auto effort = Mod::get()->getSettingValue<std::string>("effort");
+    return effort == "Default" ? "Claude " + model : fmt::format("Claude {} ({})", model, effort);
 }
 
 void GenesisPopup::setStatus(std::string const& text, ccColor3B color, bool hold) {
@@ -341,7 +365,10 @@ void GenesisPopup::tickStatus(float) {
 
 void GenesisPopup::tickDots(float) {
     m_dots = (m_dots + 1) % 4;
-    this->setStatus("Claude is designing your deco" + std::string(m_dots, '.'), kYellow);
+    m_busyTicks++;
+    int seconds = static_cast<int>(m_busyTicks * 0.3f);
+    this->setStatus(fmt::format("{} is designing your deco{}  ({}s)",
+        this->modeName(), std::string(m_dots, '.'), seconds), kYellow);
 }
 
 void GenesisPopup::setBusy(bool busy) {
@@ -353,6 +380,7 @@ void GenesisPopup::setBusy(bool busy) {
     if (m_genBtn) m_genBtn->setEnabled(!busy);
     if (busy) {
         m_dots = 0;
+        m_busyTicks = 0;
         this->schedule(schedule_selector(GenesisPopup::tickDots), .3f);
     }
     else {
@@ -473,7 +501,9 @@ void GenesisPopup::onGenerate(CCObject*) {
 
 void GenesisPopup::startAI(std::string const& prompt, std::string const& key, int targets) {
     auto model = Mod::get()->getSettingValue<std::string>("model");
-    auto timeout = std::clamp<int64_t>(Mod::get()->getSettingValue<int64_t>("timeout"), 2, 30);
+    auto effort = effortInfo(Mod::get()->getSettingValue<std::string>("effort"));
+    auto timeoutSetting = Mod::get()->getSettingValue<int64_t>("timeout");
+    int64_t timeout = timeoutSetting > 0 ? std::clamp<int64_t>(timeoutSetting, 2, 300) : effort.autoTimeout;
     bool whole = this->wholeLevel();
 
     auto message = matjson::makeObject({
@@ -483,12 +513,21 @@ void GenesisPopup::startAI(std::string const& prompt, std::string const& key, in
             prompt, whole ? "whole level" : "selection", targets, tierName(m_choices.tier)
         ) },
     });
-    auto body = matjson::makeObject({
-        { "model", model },
-        { "max_tokens", 400 },
-        { "system", genesis::aiSystemPrompt() },
-        { "messages", matjson::Value(std::vector<matjson::Value> { message }) },
-    });
+    auto messages = matjson::Value(std::vector<matjson::Value> { message });
+    auto body = effort.api
+        ? matjson::makeObject({
+            { "model", model },
+            { "max_tokens", effort.maxTokens },
+            { "system", genesis::aiSystemPrompt() },
+            { "messages", messages },
+            { "output_config", matjson::makeObject({ { "effort", std::string(effort.api) } }) },
+        })
+        : matjson::makeObject({
+            { "model", model },
+            { "max_tokens", effort.maxTokens },
+            { "system", genesis::aiSystemPrompt() },
+            { "messages", messages },
+        });
 
     web::WebRequest req;
     req.header("x-api-key", key);

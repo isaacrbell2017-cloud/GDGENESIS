@@ -64,6 +64,7 @@ private:
     bool m_busy = false;
     bool m_silentClose = false;
     int m_dots = 0;
+    int m_busyTicks = 0;
     int m_holdTicks = 0;
 };
 

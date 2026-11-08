@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.0
+- Added Claude Opus 5.5 and a Claude Effort setting (Default, Low, Medium, High, Extra High, Max).
+- AI Timeout 0 = Auto: higher effort waits longer before falling back to offline.
+
 ## v1.1.0
 - New high-quality menu: quality tiers (Featured, Epic, Legendary, Mythic), Selection / Whole Level, Fill style and a Modules page.
 - Fill: decorate inside blocks with Glow, Rim, Dots, Tiles, Checker or Solid (fills enclosed holes).

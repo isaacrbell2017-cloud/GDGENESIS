@@ -8,7 +8,7 @@
 	},
 	"id": "litchin.gdgenesis",
 	"name": "GdGenesis",
-	"version": "v1.1.0",
+	"version": "v1.2.0",
 	"developers": [
 		"Litchin"
 	],
@@ -47,20 +47,38 @@
 		"model": {
 			"type": "string",
 			"name": "Claude Model",
-			"description": "<cy>Haiku</c> is the fastest and best for the under-3-second target.",
-			"default": "claude-haiku-5-5",
+			"description": "<cy>Opus</c> = smartest deco ideas. <cy>Sonnet</c> = balanced. <cy>Haiku</c> = fastest and cheapest.",
+			"default": "claude-opus-5-5",
 			"one-of": [
-				"claude-haiku-5-5",
-				"claude-sonnet-5-5"
+				"claude-opus-5-5",
+				"claude-sonnet-5-5",
+				"claude-haiku-5-5"
+			]
+		},
+		"effort": {
+			"type": "string",
+			"name": "Claude Effort",
+			"description": "How hard Claude thinks before designing.\n<cy>Extra High</c> and <cy>Max</c> give the most thought-out deco but can take 20-90+ seconds and use more API credit.\n<cy>Default</c> uses the model's normal setting.",
+			"default": "Max",
+			"one-of": [
+				"Default",
+				"Low",
+				"Medium",
+				"High",
+				"Extra High",
+				"Max"
 			]
 		},
 		"timeout": {
 			"type": "int",
 			"name": "AI Timeout (seconds)",
-			"description": "If Claude takes longer than this, GdGenesis switches to the offline generator so you never wait long.",
-			"default": 6,
-			"min": 2,
-			"max": 30
+			"description": "If Claude takes longer than this, GdGenesis switches to the offline generator. <cy>0</c> = Auto (longer for higher effort: Max waits up to 3 minutes).",
+			"default": 0,
+			"min": 0,
+			"max": 300,
+			"control": {
+				"slider": false
+			}
 		},
 		"title-activation": {
 			"type": "title",
