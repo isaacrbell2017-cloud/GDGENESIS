@@ -14,6 +14,9 @@ namespace genesis {
     // Number of objects currently selected in the editor (0 if not in the editor).
     int selectedCount();
 
-    // Builds the deco around the current selection and adds it to the level.
-    GenerateResult generate(LevelEditorLayer* editor, DecoPlan const& plan);
+    // Number of solid blocks in the whole level.
+    int levelBlockCount();
+
+    // Builds the deco around the selection (or the whole level) and adds it to the level.
+    GenerateResult generate(LevelEditorLayer* editor, DecoPlan const& plan, bool wholeLevel);
 }

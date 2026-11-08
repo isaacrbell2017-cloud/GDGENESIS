@@ -8,12 +8,19 @@
 	},
 	"id": "litchin.gdgenesis",
 	"name": "GdGenesis",
-	"version": "v1.0.2",
-	"developers": ["Litchin"],
-	"description": "AI decoration generator for the editor. Select blocks, type a prompt, get deco.",
-	"tags": ["editor", "utility"],
+	"version": "v1.1.0",
+	"developers": [
+		"Litchin"
+	],
+	"description": "AI decoration generator for the editor: prompts, quality tiers (Featured to Mythic), fill styles and whole-level deco.",
+	"tags": [
+		"editor",
+		"utility"
+	],
 	"resources": {
-		"sprites": ["resources/*.png"]
+		"sprites": [
+			"resources/*.png"
+		]
 	},
 	"settings": {
 		"title-generator": {
@@ -25,7 +32,11 @@
 			"name": "AI Mode",
 			"description": "<cy>Auto</c>: uses Claude when an API key is set, otherwise the instant offline generator.\n<cy>Claude API</c>: always asks Claude (needs a key).\n<cy>Offline</c>: never goes online, always instant.",
 			"default": "Auto",
-			"one-of": ["Auto", "Claude API", "Offline"]
+			"one-of": [
+				"Auto",
+				"Claude API",
+				"Offline"
+			]
 		},
 		"api-key": {
 			"type": "string",
@@ -38,7 +49,10 @@
 			"name": "Claude Model",
 			"description": "<cy>Haiku</c> is the fastest and best for the under-3-second target.",
 			"default": "claude-haiku-5-5",
-			"one-of": ["claude-haiku-5-5", "claude-sonnet-5-5"]
+			"one-of": [
+				"claude-haiku-5-5",
+				"claude-sonnet-5-5"
+			]
 		},
 		"timeout": {
 			"type": "int",
@@ -77,7 +91,9 @@
 			"default": 50,
 			"min": 1,
 			"max": 999,
-			"control": { "slider": false }
+			"control": {
+				"slider": false
+			}
 		},
 		"accent-channel": {
 			"type": "int",
@@ -86,12 +102,25 @@
 			"default": 51,
 			"min": 1,
 			"max": 999,
-			"control": { "slider": false }
+			"control": {
+				"slider": false
+			}
+		},
+		"fill-channel": {
+			"type": "int",
+			"name": "Fill Color Channel",
+			"description": "Color channel used for deco inside the blocks (Fill). GdGenesis sets its color and see-through amount with a color trigger.",
+			"default": 52,
+			"min": 1,
+			"max": 999,
+			"control": {
+				"slider": false
+			}
 		},
 		"color-triggers": {
 			"type": "bool",
 			"name": "Add Color Triggers",
-			"description": "Places two color triggers just before the deco that set the deco channels to the prompt's colors.",
+			"description": "Places color triggers that set the deco channels to the prompt's colors (and color sections + background on Legendary/Mythic).",
 			"default": true
 		},
 		"deco-group": {
@@ -101,15 +130,17 @@
 			"default": 0,
 			"min": 0,
 			"max": 9999,
-			"control": { "slider": false }
+			"control": {
+				"slider": false
+			}
 		},
 		"max-objects": {
 			"type": "int",
 			"name": "Max Objects Per Generate",
-			"description": "Upper limit on how many objects one Generate can add.",
-			"default": 1500,
+			"description": "Upper limit on how many objects one Generate can add. Whole Level + Mythic uses the most.",
+			"default": 6000,
 			"min": 50,
-			"max": 10000
+			"max": 40000
 		},
 		"select-result": {
 			"type": "bool",
