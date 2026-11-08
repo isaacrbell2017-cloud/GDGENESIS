@@ -141,7 +141,9 @@ GenerateResult generate(LevelEditorLayer* lel, DecoPlan const& plan) {
     bool learn = mod->getSettingValue<bool>("learn-deco");
     auto customIDs = parseIDs(mod->getSettingValue<std::string>("custom-ids"));
 
-    Ref<CCArray> original = CCArray::createWithArray(sel);
+    // Shallow copy: CCArray::createWithArray deep-copies, and GameObjects can't be copied (crash).
+    Ref<CCArray> original = CCArray::create();
+    original->addObjectsFromArray(sel);
 
     // ---- Read the selection -------------------------------------------------
     std::vector<CCRect> solids;

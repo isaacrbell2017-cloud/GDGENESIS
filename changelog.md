@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.0.2
+- Fixed a crash when pressing Generate.
+
 ## v1.0.1
 - Default activation key is now E.
 
