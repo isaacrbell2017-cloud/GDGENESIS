@@ -8,7 +8,7 @@
 	},
 	"id": "litchin.gdgenesis",
 	"name": "GdGenesis",
-	"version": "v1.0.0",
+	"version": "v1.0.1",
 	"developers": ["Litchin"],
 	"description": "AI decoration generator for the editor. Select blocks, type a prompt, get deco.",
 	"tags": ["editor", "utility"],
@@ -62,7 +62,7 @@
 			"type": "keybind",
 			"name": "Activation Key",
 			"description": "The key that opens GdGenesis in the editor.",
-			"default": "Shift+G",
+			"default": "E",
 			"category": "editor",
 			"enable-if": "key-activation"
 		},
