@@ -282,9 +282,9 @@ GenerateResult generate(LevelEditorLayer* lel, DecoPlan const& plan) {
             if (has(x, y - 1) || has(x, y - 2) || has(x, y - 3)) continue;
             float bottomY = y * UNIT;
             if (groundKnown && bottomY < groundY + 60.f) continue;
-            bool near = false;
-            for (int d = -2; d <= 2; d++) near = near || chosen.contains(cellKey(x + d, y));
-            if (near || !chance(0.18f * plan.chains)) continue;
+            bool blocked = false;
+            for (int d = -2; d <= 2; d++) blocked = blocked || chosen.contains(cellKey(x + d, y));
+            if (blocked || !chance(0.18f * plan.chains)) continue;
             chosen.insert(cellKey(x, y));
             DecoObj o;
             o.id = ID_CHAIN;
@@ -324,8 +324,8 @@ GenerateResult generate(LevelEditorLayer* lel, DecoPlan const& plan) {
         std::unordered_set<int64_t> chosen;
         for (auto [x, y] : tops) {
             if (has(x, y + 2)) continue;
-            bool near = chosen.contains(cellKey(x - 1, y)) || chosen.contains(cellKey(x - 2, y));
-            if (near || !chance(0.12f * plan.bushes)) continue;
+            bool blocked = chosen.contains(cellKey(x - 1, y)) || chosen.contains(cellKey(x - 2, y));
+            if (blocked || !chance(0.12f * plan.bushes)) continue;
             chosen.insert(cellKey(x, y));
             DecoObj o;
             o.id = BUSH_IDS[ri(0, 5)];
@@ -349,9 +349,9 @@ GenerateResult generate(LevelEditorLayer* lel, DecoPlan const& plan) {
         std::unordered_set<int64_t> chosen;
         for (auto [x, y] : tops) {
             if (has(x, y + 2)) continue;
-            bool near = false;
-            for (int d = 1; d <= gap; d++) near = near || chosen.contains(cellKey(x - d, y));
-            if (near || !chance(0.5f)) continue;
+            bool blocked = false;
+            for (int d = 1; d <= gap; d++) blocked = blocked || chosen.contains(cellKey(x - d, y));
+            if (blocked || !chance(0.5f)) continue;
             chosen.insert(cellKey(x, y));
             DecoObj o;
             o.id = ID_ROD;
