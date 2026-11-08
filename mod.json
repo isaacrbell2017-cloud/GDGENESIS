@@ -1,0 +1,149 @@
+{
+	"geode": "5.11.2",
+	"gd": {
+		"android": "2.2081",
+		"win": "2.2081",
+		"mac": "2.2081",
+		"ios": "2.2081"
+	},
+	"id": "litchin.gdgenesis",
+	"name": "GdGenesis",
+	"version": "v1.0.0",
+	"developers": ["Litchin"],
+	"description": "AI decoration generator for the editor. Select blocks, type a prompt, get deco.",
+	"tags": ["editor", "utility"],
+	"resources": {
+		"sprites": ["resources/*.png"]
+	},
+	"settings": {
+		"title-generator": {
+			"type": "title",
+			"name": "Generator"
+		},
+		"ai-mode": {
+			"type": "string",
+			"name": "AI Mode",
+			"description": "<cy>Auto</c>: uses Claude when an API key is set, otherwise the instant offline generator.\n<cy>Claude API</c>: always asks Claude (needs a key).\n<cy>Offline</c>: never goes online, always instant.",
+			"default": "Auto",
+			"one-of": ["Auto", "Claude API", "Offline"]
+		},
+		"api-key": {
+			"type": "string",
+			"name": "Claude API Key",
+			"description": "Your API key from <cy>console.anthropic.com</c>. It is stored on this device only and sent only to api.anthropic.com.",
+			"default": ""
+		},
+		"model": {
+			"type": "string",
+			"name": "Claude Model",
+			"description": "<cy>Haiku</c> is the fastest and best for the under-3-second target.",
+			"default": "claude-haiku-5-5",
+			"one-of": ["claude-haiku-5-5", "claude-sonnet-5-5"]
+		},
+		"timeout": {
+			"type": "int",
+			"name": "AI Timeout (seconds)",
+			"description": "If Claude takes longer than this, GdGenesis switches to the offline generator so you never wait long.",
+			"default": 6,
+			"min": 2,
+			"max": 30
+		},
+		"title-activation": {
+			"type": "title",
+			"name": "Activation"
+		},
+		"key-activation": {
+			"type": "bool",
+			"name": "Key Activation",
+			"description": "Open GdGenesis with a key in the editor <cy>instead of</c> the pause-menu button.",
+			"default": false
+		},
+		"activation-key": {
+			"type": "keybind",
+			"name": "Activation Key",
+			"description": "The key that opens GdGenesis in the editor.",
+			"default": "Shift+G",
+			"category": "editor",
+			"enable-if": "key-activation"
+		},
+		"title-deco": {
+			"type": "title",
+			"name": "Decoration"
+		},
+		"main-channel": {
+			"type": "int",
+			"name": "Main Deco Color Channel",
+			"description": "Color channel used for the main deco color.",
+			"default": 50,
+			"min": 1,
+			"max": 999,
+			"control": { "slider": false }
+		},
+		"accent-channel": {
+			"type": "int",
+			"name": "Accent Color Channel",
+			"description": "Color channel used for highlights.",
+			"default": 51,
+			"min": 1,
+			"max": 999,
+			"control": { "slider": false }
+		},
+		"color-triggers": {
+			"type": "bool",
+			"name": "Add Color Triggers",
+			"description": "Places two color triggers just before the deco that set the deco channels to the prompt's colors.",
+			"default": true
+		},
+		"deco-group": {
+			"type": "int",
+			"name": "Put Deco In Group",
+			"description": "Group ID given to all generated deco. <cy>0</c> = no group.",
+			"default": 0,
+			"min": 0,
+			"max": 9999,
+			"control": { "slider": false }
+		},
+		"max-objects": {
+			"type": "int",
+			"name": "Max Objects Per Generate",
+			"description": "Upper limit on how many objects one Generate can add.",
+			"default": 1500,
+			"min": 50,
+			"max": 10000
+		},
+		"select-result": {
+			"type": "bool",
+			"name": "Select Generated Deco",
+			"description": "On: the new deco is selected afterwards. Off: your original blocks stay selected so you can Undo and generate again.",
+			"default": false
+		},
+		"learn-deco": {
+			"type": "bool",
+			"name": "Reuse Selected Deco",
+			"description": "If your selection includes deco objects (like glow pieces), GdGenesis reuses them in the design.",
+			"default": true
+		},
+		"custom-ids": {
+			"type": "string",
+			"name": "Custom Deco IDs",
+			"description": "Comma-separated object IDs GdGenesis can scatter (for example your favourite glow pieces). Used when the prompt says <cy>custom</c>.",
+			"default": "",
+			"filter": "0123456789, "
+		},
+		"title-misc": {
+			"type": "title",
+			"name": "Misc"
+		},
+		"button-sfx": {
+			"type": "bool",
+			"name": "Button Sound Effects",
+			"default": true
+		},
+		"owner-lock": {
+			"type": "bool",
+			"name": "Litchin-Only Lock",
+			"description": "GdGenesis only opens when you're logged into the <cg>Litchin</c> account (or logged out).",
+			"default": true
+		}
+	}
+}
